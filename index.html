@@ -114,7 +114,6 @@
     const html5QrCode = new Html5Qrcode("reader");
 
     startButton.addEventListener("click", async () => {
-      // 音声初期化（iOS対応）
       successSound = new Howl({ src: ['success.mp3'] });
       failSound = new Howl({
         src: ['https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg']
@@ -128,8 +127,9 @@
           await html5QrCode.start(
             { facingMode: "environment" },
             { fps: 10, qrbox: 250 },
-            qrCodeMessage => { if (!isBlocked) handleQR(qrCodeMessage); },
-            errorMessage => {}
+            qrCodeMessage => {
+              if (!isBlocked) handleQR(qrCodeMessage);
+            }
           );
         } else {
           resultDiv.innerText = "カメラが見つかりませんでした 😢";
