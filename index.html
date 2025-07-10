@@ -81,26 +81,36 @@
     const html5QrCode = new Html5Qrcode("reader");
 
     startButton.addEventListener("click", async () => {
-      startButton.style.display = "none";
-      readerDiv.style.display = "block";
-      try {
-        const cameras = await Html5Qrcode.getCameras();
-        if (cameras.length) {
-          await html5QrCode.start(
-            { facingMode: "environment" },
-            { fps: 10, qrbox: 250 },
-            qrCodeMessage => {
-              if (!isBlocked) handleQR(qrCodeMessage);
-            },
-            errorMessage => {}
-          );
-        } else {
-          resultDiv.innerText = "カメラが見つかりませんでした";
+  startButton.style.display = "none";
+  readerDiv.style.display = "block";
+  resultDiv.innerText = "📡 カメラを起動中です…";
+
+  try {
+    const cameras = await Html5Qrcode.getCameras();
+    console.log("📷 利用可能なカメラ:", cameras);
+    if (cameras.length) {
+      await html5QrCode.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: 250 },
+        qrCodeMessage => {
+          console.log("✅ QRコード読み取り成功:", qrCodeMessage);
+          if (!isBlocked) handleQR(qrCodeMessage);
+        },
+        errorMessage => {
+          // 読み取りエラー時に表示
+          console.warn("⚠️ QR読み取り失敗:", errorMessage);
+          resultDiv.innerText = "⚠️ QRコードを読み取れませんでした。カメラを動かして再試行してください";
         }
-      } catch (err) {
-        resultDiv.innerText = "カメラ起動に失敗しました";
-      }
-    });
+      );
+    } else {
+      resultDiv.innerText = "❌ カメラが検出できません";
+    }
+  } catch (err) {
+    console.error("❌ カメラ起動失敗:", err);
+    resultDiv.innerText = "❌ カメラの起動に失敗しました";
+  }
+});
+
 
     function handleQR(qr) {
       isBlocked = true;
