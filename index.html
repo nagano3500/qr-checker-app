@@ -2,22 +2,21 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <title>QR照合確認</title>
+ <!-- PWA対応 -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#ba9ae0">
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('service-worker.js');
+  }
+</script>
+
+  <title>QRコード照合</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#ba9ae0">
-  <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js')
-        .then(() => console.log('SW登録成功'))
-        .catch(err => console.error('SW登録失敗:', err));
-    }
-  </script>
   <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js"></script>
   <style>
-    body {
+    body { 
       font-family: "Rounded Mplus 1c", "Arial", sans-serif;
       background: linear-gradient(to bottom, #f6f1f9, #fff);
       color: #4a4a4a;
@@ -25,23 +24,35 @@
       padding: 20px;
       transition: background 1.5s ease;
     }
+
+    /* 🌈 一致時の虹グラデーション */
     body.success-bg {
       background: linear-gradient(45deg,
-        #f8b195, #f67280, #c06c84, #6c5b7b, #355c7d,
-        #6ab3f7, #a8e6cf, #dcedc1, #ffd3b6
+        #f8b195,
+        #f67280,
+        #c06c84,
+        #6c5b7b,
+        #355c7d,
+        #6ab3f7,
+        #a8e6cf,
+        #dcedc1,
+        #ffd3b6
       );
       background-size: 300% 300%;
       animation: rainbow 3s ease forwards;
     }
+
     @keyframes rainbow {
       0% { background-position: 0% 50%; }
       100% { background-position: 100% 50%; }
     }
+
     h1 {
       font-size: 2rem;
       color: #7e57c2;
       margin-bottom: 10px;
     }
+
     #reader {
       width: 100%;
       max-width: 340px;
@@ -51,6 +62,7 @@
       display: none;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     }
+
     #start-button {
       background-color: #ba9ae0;
       color: white;
@@ -62,9 +74,11 @@
       box-shadow: 0 3px 5px rgba(0, 0, 0, 0.15);
       transition: background 0.3s ease;
     }
+
     #start-button:hover {
       background-color: #a678d1;
     }
+
     #result {
       font-size: 1.2rem;
       margin-top: 20px;
@@ -75,20 +89,24 @@
       border-radius: 20px;
       box-shadow: 0 4px 10px rgba(0,0,0,0.1);
     }
+
     .success {
       color: #66bb6a;
       font-weight: bold;
     }
+
     .fail {
       color: #ef5350;
       font-weight: bold;
     }
+
     .qr-label {
       font-weight: bold;
       color: #7e57c2;
       margin-bottom: 6px;
       font-size: 1rem;
     }
+
     .qr-value {
       font-size: 1.1rem;
       word-break: break-word;
@@ -97,28 +115,35 @@
   </style>
 </head>
 <body>
-  <h1>🔍 QR照合確認 🔍</h1>
+  <h1>🌸 QRチェックアプリ 🌸</h1>
   <button id="start-button">📷 スキャンを始める</button>
   <div id="reader"></div>
-  <div id="result">「スキャンを始める」ボタンを押してください</div>
+  <div id="result">
+    「スキャンを始める」ボタンを押してください
+  </div>
+
   <script>
     let firstQR = null;
     let isComparing = false;
     let isBlocked = false;
-    let successSound, failSound;
+
+    // ✅ 成功音（GitHubに success.mp3 をアップ）
+    const successSound = new Howl({
+      src: ['success.mp3']
+    });
+
+    const failSound = new Howl({
+      src: ['https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg']
+    });
 
     const resultDiv = document.getElementById("result");
     const readerDiv = document.getElementById("reader");
     const startButton = document.getElementById("start-button");
     const body = document.body;
+
     const html5QrCode = new Html5Qrcode("reader");
 
     startButton.addEventListener("click", async () => {
-      successSound = new Howl({ src: ['success.mp3'] });
-      failSound = new Howl({
-        src: ['https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg']
-      });
-
       startButton.style.display = "none";
       readerDiv.style.display = "block";
       try {
@@ -128,8 +153,11 @@
             { facingMode: "environment" },
             { fps: 10, qrbox: 250 },
             qrCodeMessage => {
-              if (!isBlocked) handleQR(qrCodeMessage);
-            }
+              if (!isBlocked) {
+                handleQR(qrCodeMessage);
+              }
+            },
+            errorMessage => { /* 無視OK */ }
           );
         } else {
           resultDiv.innerText = "カメラが見つかりませんでした 😢";
@@ -142,6 +170,7 @@
 
     function handleQR(qr) {
       isBlocked = true;
+
       if (!firstQR) {
         firstQR = qr;
         resultDiv.innerHTML = `
@@ -162,18 +191,21 @@
           </div>
         `;
         (match ? successSound : failSound).play();
+
         if (match) {
           body.classList.add("success-bg");
           setTimeout(() => {
             body.classList.remove("success-bg");
           }, 3000);
         }
+
         setTimeout(() => {
           firstQR = null;
           isComparing = false;
           resultDiv.innerHTML = "📸 もう一度スキャンを行ってください";
         }, 3000);
       }
+
       setTimeout(() => {
         isBlocked = false;
       }, 3000);
@@ -181,3 +213,4 @@
   </script>
 </body>
 </html>
+
