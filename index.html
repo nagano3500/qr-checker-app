@@ -101,14 +101,14 @@
   <div id="result">「スキャンを始める」ボタンを押してください</div>
 
   <script>
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbwlFVMCOKjtHNlcHqWg10rth_RtpQCKwsdVFH_5Tpf2Up7IRQZLZYl43mXAkgo-c4b_tA/exec";
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbwiSU7-tnK9_P_A2OHpY6QkHa9ybonf9eL8sgjYTuaaQiMZ38iL3AJoeClqyvqLAlpiuQ/exec";
 
     let firstQR = null;
     let isBlocked = false;
     let lastScanTime = 0;
     let readyForCompare = false;
 
-    const scanInterval = 3000; // スキャンは3秒以上空ける
+    const scanInterval = 3000; // スキャン間隔（3秒）
     const successSound = new Howl({ src: ['success.mp3'] });
     const failSound = new Howl({ src: ['https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg'] });
 
@@ -153,14 +153,13 @@
       isBlocked = true;
 
       if (!firstQR) {
-        // 基準QRのスキャン
         firstQR = qr;
         readyForCompare = false;
 
         resultDiv.innerHTML = `
           <div class="qr-label">🔑 基準QR：</div>
           <div class="qr-value">${qr}</div>
-          <div style="margin-top:12px;">3秒後に照合QRを1回だけスキャンしてください</div>
+          <div style="margin-top:12px;">3秒後に照合QRをスキャンしてください</div>
         `;
 
         setTimeout(() => {
@@ -168,7 +167,6 @@
         }, scanInterval);
 
       } else if (readyForCompare) {
-        // 照合QRのスキャン（1回限定）
         const match = qr === firstQR;
         resultDiv.innerHTML = `
           <div class="qr-label">🔑 基準QR：</div>
