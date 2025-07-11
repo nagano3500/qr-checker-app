@@ -102,12 +102,14 @@
 
   <script>
     const GAS_URL = "https://script.google.com/macros/s/AKfycbwlFVMCOKjtHNlcHqWg10rth_RtpQCKwsdVFH_5Tpf2Up7IRQZLZYl43mXAkgo-c4b_tA/exec";
+
     let firstQR = null;
     let compareQRs = [];
     let isBlocked = false;
     let waitTimer = null;
-
-    const maxWaitTime = 5000; // 2回目照合を待つ最大時間（ミリ秒）
+    let lastScanTime = 0;
+    const scanInterval = 3000; // 全スキャンで3秒以上あける
+    const maxWaitTime = 5000; // 照合が1回だけなら5秒で確定
 
     const successSound = new Howl({ src: ['success.mp3'] });
     const failSound = new Howl({ src: ['https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg'] });
@@ -142,47 +144,39 @@
     });
 
     function handleQR(qr) {
-  isBlocked = true;
-  const now = Date.now();
+      const now = Date.now();
 
-  if (!firstQR) {
-    // 基準QRの処理
-    firstQR = qr;
-    compareQRs = [];
-    lastScanTime = now; // 初期化
+      if (now - lastScanTime < scanInterval) {
+        resultDiv.innerHTML += `<div style="margin-top:10px;color:gray;font-size:0.9rem;">⚠ 次のスキャンは3秒以上あけてください</div>`;
+        return;
+      }
 
-    resultDiv.innerHTML = `
-      <div class="qr-label">🔑 基準QR：</div>
-      <div class="qr-value">${qr}</div>
-      <div style="margin-top:12px;">照合QRを1回または2回スキャンしてください（3秒以上あけて最大5秒）</div>
-    `;
+      lastScanTime = now;
+      isBlocked = true;
 
-    waitTimer = setTimeout(() => {
-      if (compareQRs.length > 0) finishComparison();
-    }, 5000);
+      if (!firstQR) {
+        firstQR = qr;
+        compareQRs = [];
+        resultDiv.innerHTML = `
+          <div class="qr-label">🔑 基準QR：</div>
+          <div class="qr-value">${qr}</div>
+          <div style="margin-top:12px;">照合QRを1回または2回スキャンしてください（3秒以上あけて）</div>
+        `;
+        waitTimer = setTimeout(() => {
+          if (compareQRs.length > 0) finishComparison();
+        }, maxWaitTime);
+      } else {
+        compareQRs.push(qr);
+        if (compareQRs.length >= 2) {
+          clearTimeout(waitTimer);
+          finishComparison();
+        }
+      }
 
-  } else {
-    // 🔒 3秒未満なら無視
-    if (now - lastScanTime < minInterval) {
-      resultDiv.innerHTML += `<div style="margin-top:10px;color:gray;font-size:0.9rem;">⚠ 照合QRのスキャンは3秒以上あけてください</div>`;
-      isBlocked = false;
-      return;
+      setTimeout(() => {
+        isBlocked = false;
+      }, 1500);
     }
-
-    compareQRs.push(qr);
-    lastScanTime = now;
-
-    if (compareQRs.length >= 2) {
-      clearTimeout(waitTimer);
-      finishComparison();
-    }
-  }
-
-  setTimeout(() => {
-    isBlocked = false;
-  }, 1500);
-}
-
 
     function finishComparison() {
       const allMatch = compareQRs.every(val => val === firstQR);
@@ -209,7 +203,8 @@
         "&check=" + encodeURIComponent(compareQRs.join(",")) +
         "&count=" + compareQRs.length +
         "&result=" + result)
-        .then(r => r.text()).then(console.log);
+        .then(r => r.text())
+        .then(console.log);
 
       (allMatch ? successSound : failSound).play();
 
