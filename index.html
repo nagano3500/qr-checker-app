@@ -106,8 +106,9 @@
     let firstQR = null;
     let isBlocked = false;
     let lastScanTime = 0;
-    const scanInterval = 3000; // 3秒間隔
+    let readyForCompare = false;
 
+    const scanInterval = 3000; // スキャンは3秒以上空ける
     const successSound = new Howl({ src: ['success.mp3'] });
     const failSound = new Howl({ src: ['https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg'] });
 
@@ -142,21 +143,32 @@
 
     function handleQR(qr) {
       const now = Date.now();
+
       if (now - lastScanTime < scanInterval) {
         resultDiv.innerHTML += `<div style="margin-top:10px;color:gray;font-size:0.9rem;">⚠ 次のスキャンは3秒以上あけてください</div>`;
         return;
       }
+
       lastScanTime = now;
       isBlocked = true;
 
       if (!firstQR) {
+        // 基準QRのスキャン
         firstQR = qr;
+        readyForCompare = false;
+
         resultDiv.innerHTML = `
           <div class="qr-label">🔑 基準QR：</div>
           <div class="qr-value">${qr}</div>
-          <div style="margin-top:12px;">次の照合QRを3秒以上あけてスキャンしてください</div>
+          <div style="margin-top:12px;">3秒後に照合QRを1回だけスキャンしてください</div>
         `;
-      } else {
+
+        setTimeout(() => {
+          readyForCompare = true;
+        }, scanInterval);
+
+      } else if (readyForCompare) {
+        // 照合QRのスキャン（1回限定）
         const match = qr === firstQR;
         resultDiv.innerHTML = `
           <div class="qr-label">🔑 基準QR：</div>
@@ -185,6 +197,7 @@
 
         setTimeout(() => {
           firstQR = null;
+          readyForCompare = false;
           resultDiv.innerHTML = "📸 もう一度スキャンを行ってください";
         }, 3000);
       }
@@ -196,4 +209,3 @@
   </script>
 </body>
 </html>
-
