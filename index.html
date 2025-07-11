@@ -98,17 +98,16 @@
   <h1>🌸 QR照合確認 🌸</h1>
   <button id="start-button">📷 スキャンを始める</button>
   <div id="reader"></div>
-  <div id="result">
-    「スキャンを始める」ボタンを押してください
-  </div>
+  <div id="result">「スキャンを始める」ボタンを押してください</div>
 
   <script>
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbx8BUF7zeemey4TvFFRwP5XrJMxBx62IhqiPysgSxqAFeG1IvbqQpud1PcpU1q8USTP3g/exec";
     let firstQR = null;
     let compareQRs = [];
-    let maxCompare = 2; // 照合QR最大数
     let isBlocked = false;
+    let waitTimer = null;
 
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbxC0VSFWeBAPA2Dne1F5egxRbFOR7t0xL6-Gq_FRpbdHqf98Bs3qQi38LCM7fu5nhMMcA/exec";
+    const maxWaitTime = 5000; // 2回目照合を待つ最大時間（ミリ秒）
 
     const successSound = new Howl({ src: ['success.mp3'] });
     const failSound = new Howl({ src: ['https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg'] });
@@ -117,7 +116,6 @@
     const readerDiv = document.getElementById("reader");
     const startButton = document.getElementById("start-button");
     const body = document.body;
-
     const html5QrCode = new Html5Qrcode("reader");
 
     startButton.addEventListener("click", async () => {
@@ -152,58 +150,66 @@
         resultDiv.innerHTML = `
           <div class="qr-label">🔑 基準QR：</div>
           <div class="qr-value">${qr}</div>
-          <div style="margin-top:12px;">照合QRを ${maxCompare} 回までスキャンしてください</div>
+          <div style="margin-top:12px;">照合QRを1回または2回スキャンしてください（5秒以内）</div>
         `;
+
+        waitTimer = setTimeout(() => {
+          if (compareQRs.length > 0) finishComparison();
+        }, maxWaitTime);
+
       } else {
         compareQRs.push(qr);
 
-        let html = `
-          <div class="qr-label">🔑 基準QR：</div>
-          <div class="qr-value">${firstQR}</div>
-        `;
-
-        compareQRs.forEach((val, i) => {
-          const match = val === firstQR;
-          html += `
-            <div class="qr-label" style="margin-top:12px;">🔍 照合QR${i + 1}：</div>
-            <div class="qr-value">${val}</div>
-            <div style="margin-top:6px;" class="${match ? 'success' : 'fail'}">
-              ${match ? '✅ 一致' : '❌ 不一致'}
-            </div>
-          `;
-        });
-
-        resultDiv.innerHTML = html;
-
-        const allMatch = compareQRs.every(val => val === firstQR);
-        (allMatch ? successSound : failSound).play();
-
-        if (allMatch) {
-          body.classList.add("success-bg");
-          setTimeout(() => {
-            body.classList.remove("success-bg");
-          }, 3000);
-        }
-
-        if (compareQRs.length >= maxCompare) {
-          // ✅ GASへ送信
-          fetch(GAS_URL +
-            "?base=" + encodeURIComponent(firstQR) +
-            "&check=" + encodeURIComponent(compareQRs.join(",")))
-            .then(r => r.text())
-            .then(console.log);
-
-          setTimeout(() => {
-            firstQR = null;
-            compareQRs = [];
-            resultDiv.innerHTML = "📸 もう一度スキャンを行ってください";
-          }, 3000);
+        if (compareQRs.length >= 2) {
+          clearTimeout(waitTimer);
+          finishComparison();
         }
       }
 
       setTimeout(() => {
         isBlocked = false;
       }, 1500);
+    }
+
+    function finishComparison() {
+      const allMatch = compareQRs.every(val => val === firstQR);
+      const result = allMatch ? "OK" : "NG";
+
+      let html = `
+        <div class="qr-label">🔑 基準QR：</div>
+        <div class="qr-value">${firstQR}</div>
+      `;
+      compareQRs.forEach((val, i) => {
+        const match = val === firstQR;
+        html += `
+          <div class="qr-label" style="margin-top:12px;">🔍 照合QR${i + 1}：</div>
+          <div class="qr-value">${val}</div>
+          <div class="${match ? 'success' : 'fail'}" style="margin-top:6px;">
+            ${match ? '✅ 一致' : '❌ 不一致'}
+          </div>
+        `;
+      });
+      resultDiv.innerHTML = html;
+
+      fetch(GAS_URL +
+        "?base=" + encodeURIComponent(firstQR) +
+        "&check=" + encodeURIComponent(compareQRs.join(",")) +
+        "&count=" + compareQRs.length +
+        "&result=" + result)
+        .then(r => r.text()).then(console.log);
+
+      (allMatch ? successSound : failSound).play();
+
+      if (allMatch) {
+        body.classList.add("success-bg");
+        setTimeout(() => body.classList.remove("success-bg"), 3000);
+      }
+
+      setTimeout(() => {
+        firstQR = null;
+        compareQRs = [];
+        resultDiv.innerHTML = "📸 もう一度スキャンを行ってください";
+      }, 3000);
     }
   </script>
 </body>
