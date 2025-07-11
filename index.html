@@ -2,21 +2,20 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
- <!-- PWA対応 -->
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#ba9ae0">
-<script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('service-worker.js');
-  }
-</script>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#ba9ae0">
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('service-worker.js');
+    }
+  </script>
 
   <title>QRコード照合</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js"></script>
   <style>
-    body { 
+    body {
       font-family: "Rounded Mplus 1c", "Arial", sans-serif;
       background: linear-gradient(to bottom, #f6f1f9, #fff);
       color: #4a4a4a;
@@ -24,35 +23,23 @@
       padding: 20px;
       transition: background 1.5s ease;
     }
-
-    /* 🌈 一致時の虹グラデーション */
     body.success-bg {
       background: linear-gradient(45deg,
-        #f8b195,
-        #f67280,
-        #c06c84,
-        #6c5b7b,
-        #355c7d,
-        #6ab3f7,
-        #a8e6cf,
-        #dcedc1,
-        #ffd3b6
+        #f8b195, #f67280, #c06c84, #6c5b7b, #355c7d,
+        #6ab3f7, #a8e6cf, #dcedc1, #ffd3b6
       );
       background-size: 300% 300%;
       animation: rainbow 3s ease forwards;
     }
-
     @keyframes rainbow {
       0% { background-position: 0% 50%; }
       100% { background-position: 100% 50%; }
     }
-
     h1 {
       font-size: 2rem;
       color: #7e57c2;
       margin-bottom: 10px;
     }
-
     #reader {
       width: 100%;
       max-width: 340px;
@@ -62,7 +49,6 @@
       display: none;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     }
-
     #start-button {
       background-color: #ba9ae0;
       color: white;
@@ -74,11 +60,9 @@
       box-shadow: 0 3px 5px rgba(0, 0, 0, 0.15);
       transition: background 0.3s ease;
     }
-
     #start-button:hover {
       background-color: #a678d1;
     }
-
     #result {
       font-size: 1.2rem;
       margin-top: 20px;
@@ -89,24 +73,20 @@
       border-radius: 20px;
       box-shadow: 0 4px 10px rgba(0,0,0,0.1);
     }
-
     .success {
       color: #66bb6a;
       font-weight: bold;
     }
-
     .fail {
       color: #ef5350;
       font-weight: bold;
     }
-
     .qr-label {
       font-weight: bold;
       color: #7e57c2;
       margin-bottom: 6px;
       font-size: 1rem;
     }
-
     .qr-value {
       font-size: 1.1rem;
       word-break: break-word;
@@ -124,17 +104,12 @@
 
   <script>
     let firstQR = null;
-    let isComparing = false;
+    let compareQRs = [];
+    let maxCompare = 2;  // ← 必要に応じて変更可能
     let isBlocked = false;
 
-    // ✅ 成功音（GitHubに success.mp3 をアップ）
-    const successSound = new Howl({
-      src: ['success.mp3']
-    });
-
-    const failSound = new Howl({
-      src: ['https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg']
-    });
+    const successSound = new Howl({ src: ['success.mp3'] });
+    const failSound = new Howl({ src: ['https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg'] });
 
     const resultDiv = document.getElementById("result");
     const readerDiv = document.getElementById("reader");
@@ -153,11 +128,9 @@
             { facingMode: "environment" },
             { fps: 10, qrbox: 250 },
             qrCodeMessage => {
-              if (!isBlocked) {
-                handleQR(qrCodeMessage);
-              }
+              if (!isBlocked) handleQR(qrCodeMessage);
             },
-            errorMessage => { /* 無視OK */ }
+            errorMessage => { /* 無視してOK */ }
           );
         } else {
           resultDiv.innerText = "カメラが見つかりませんでした 😢";
@@ -173,42 +146,55 @@
 
       if (!firstQR) {
         firstQR = qr;
+        compareQRs = [];
         resultDiv.innerHTML = `
           <div class="qr-label">🔑 基準QR：</div>
           <div class="qr-value">${qr}</div>
-          <div style="margin-top:12px;">次のQRコードをスキャンしてください</div>
+          <div style="margin-top:12px;">照合QRを ${maxCompare} 回までスキャンしてください</div>
         `;
-      } else if (!isComparing) {
-        isComparing = true;
-        const match = qr === firstQR;
-        resultDiv.innerHTML = `
+      } else {
+        compareQRs.push(qr);
+
+        let html = `
           <div class="qr-label">🔑 基準QR：</div>
           <div class="qr-value">${firstQR}</div>
-          <div class="qr-label" style="margin-top:12px;">🔍 照合QR：</div>
-          <div class="qr-value">${qr}</div>
-          <div style="margin-top:16px;" class="${match ? 'success' : 'fail'}">
-            ${match ? '✅ 一致しました！' : '❌ 不一致です…'}
-          </div>
         `;
-        (match ? successSound : failSound).play();
 
-        if (match) {
+        compareQRs.forEach((val, i) => {
+          const match = val === firstQR;
+          html += `
+            <div class="qr-label" style="margin-top:12px;">🔍 照合QR${i + 1}：</div>
+            <div class="qr-value">${val}</div>
+            <div style="margin-top:6px;" class="${match ? 'success' : 'fail'}">
+              ${match ? '✅ 一致' : '❌ 不一致'}
+            </div>
+          `;
+        });
+
+        resultDiv.innerHTML = html;
+
+        const allMatch = compareQRs.every(val => val === firstQR);
+        (allMatch ? successSound : failSound).play();
+
+        if (allMatch) {
           body.classList.add("success-bg");
           setTimeout(() => {
             body.classList.remove("success-bg");
           }, 3000);
         }
 
-        setTimeout(() => {
-          firstQR = null;
-          isComparing = false;
-          resultDiv.innerHTML = "📸 もう一度スキャンを行ってください";
-        }, 3000);
+        if (compareQRs.length >= maxCompare) {
+          setTimeout(() => {
+            firstQR = null;
+            compareQRs = [];
+            resultDiv.innerHTML = "📸 もう一度スキャンを行ってください";
+          }, 3000);
+        }
       }
 
       setTimeout(() => {
         isBlocked = false;
-      }, 3000);
+      }, 1500);
     }
   </script>
 </body>
