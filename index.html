@@ -101,7 +101,7 @@
   <div id="result">「スキャンを始める」ボタンを押してください</div>
 
   <script>
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbx8BUF7zeemey4TvFFRwP5XrJMxBx62IhqiPysgSxqAFeG1IvbqQpud1PcpU1q8USTP3g/exec";
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbwlFVMCOKjtHNlcHqWg10rth_RtpQCKwsdVFH_5Tpf2Up7IRQZLZYl43mXAkgo-c4b_tA/exec";
     let firstQR = null;
     let compareQRs = [];
     let isBlocked = false;
@@ -142,34 +142,47 @@
     });
 
     function handleQR(qr) {
-      isBlocked = true;
+  isBlocked = true;
+  const now = Date.now();
 
-      if (!firstQR) {
-        firstQR = qr;
-        compareQRs = [];
-        resultDiv.innerHTML = `
-          <div class="qr-label">🔑 基準QR：</div>
-          <div class="qr-value">${qr}</div>
-          <div style="margin-top:12px;">照合QRを1回または2回スキャンしてください（5秒以内）</div>
-        `;
+  if (!firstQR) {
+    // 基準QRの処理
+    firstQR = qr;
+    compareQRs = [];
+    lastScanTime = now; // 初期化
 
-        waitTimer = setTimeout(() => {
-          if (compareQRs.length > 0) finishComparison();
-        }, maxWaitTime);
+    resultDiv.innerHTML = `
+      <div class="qr-label">🔑 基準QR：</div>
+      <div class="qr-value">${qr}</div>
+      <div style="margin-top:12px;">照合QRを1回または2回スキャンしてください（3秒以上あけて最大5秒）</div>
+    `;
 
-      } else {
-        compareQRs.push(qr);
+    waitTimer = setTimeout(() => {
+      if (compareQRs.length > 0) finishComparison();
+    }, 5000);
 
-        if (compareQRs.length >= 2) {
-          clearTimeout(waitTimer);
-          finishComparison();
-        }
-      }
-
-      setTimeout(() => {
-        isBlocked = false;
-      }, 1500);
+  } else {
+    // 🔒 3秒未満なら無視
+    if (now - lastScanTime < minInterval) {
+      resultDiv.innerHTML += `<div style="margin-top:10px;color:gray;font-size:0.9rem;">⚠ 照合QRのスキャンは3秒以上あけてください</div>`;
+      isBlocked = false;
+      return;
     }
+
+    compareQRs.push(qr);
+    lastScanTime = now;
+
+    if (compareQRs.length >= 2) {
+      clearTimeout(waitTimer);
+      finishComparison();
+    }
+  }
+
+  setTimeout(() => {
+    isBlocked = false;
+  }, 1500);
+}
+
 
     function finishComparison() {
       const allMatch = compareQRs.every(val => val === firstQR);
