@@ -105,8 +105,10 @@
   <script>
     let firstQR = null;
     let compareQRs = [];
-    let maxCompare = 2;  // ← 必要に応じて変更可能
+    let maxCompare = 2; // 照合QR最大数
     let isBlocked = false;
+
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbx8BUF7zeemey4TvFFRwP5XrJMxBx62IhqiPysgSxqAFeG1IvbqQpud1PcpU1q8USTP3g/exec";
 
     const successSound = new Howl({ src: ['success.mp3'] });
     const failSound = new Howl({ src: ['https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg'] });
@@ -130,7 +132,7 @@
             qrCodeMessage => {
               if (!isBlocked) handleQR(qrCodeMessage);
             },
-            errorMessage => { /* 無視してOK */ }
+            errorMessage => { }
           );
         } else {
           resultDiv.innerText = "カメラが見つかりませんでした 😢";
@@ -184,6 +186,13 @@
         }
 
         if (compareQRs.length >= maxCompare) {
+          // ✅ GASへ送信
+          fetch(GAS_URL +
+            "?base=" + encodeURIComponent(firstQR) +
+            "&check=" + encodeURIComponent(compareQRs.join(",")))
+            .then(r => r.text())
+            .then(console.log);
+
           setTimeout(() => {
             firstQR = null;
             compareQRs = [];
