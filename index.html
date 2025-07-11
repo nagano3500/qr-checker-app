@@ -104,12 +104,9 @@
     const GAS_URL = "https://script.google.com/macros/s/AKfycbwlFVMCOKjtHNlcHqWg10rth_RtpQCKwsdVFH_5Tpf2Up7IRQZLZYl43mXAkgo-c4b_tA/exec";
 
     let firstQR = null;
-    let compareQRs = [];
     let isBlocked = false;
-    let waitTimer = null;
     let lastScanTime = 0;
-    const scanInterval = 3000; // 全スキャンで3秒以上あける
-    const maxWaitTime = 5000; // 照合が1回だけなら5秒で確定
+    const scanInterval = 3000; // 3秒間隔
 
     const successSound = new Howl({ src: ['success.mp3'] });
     const failSound = new Howl({ src: ['https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg'] });
@@ -145,79 +142,56 @@
 
     function handleQR(qr) {
       const now = Date.now();
-
       if (now - lastScanTime < scanInterval) {
         resultDiv.innerHTML += `<div style="margin-top:10px;color:gray;font-size:0.9rem;">⚠ 次のスキャンは3秒以上あけてください</div>`;
         return;
       }
-
       lastScanTime = now;
       isBlocked = true;
 
       if (!firstQR) {
         firstQR = qr;
-        compareQRs = [];
         resultDiv.innerHTML = `
           <div class="qr-label">🔑 基準QR：</div>
           <div class="qr-value">${qr}</div>
-          <div style="margin-top:12px;">照合QRを1回または2回スキャンしてください（3秒以上あけて）</div>
+          <div style="margin-top:12px;">次の照合QRを3秒以上あけてスキャンしてください</div>
         `;
-        waitTimer = setTimeout(() => {
-          if (compareQRs.length > 0) finishComparison();
-        }, maxWaitTime);
       } else {
-        compareQRs.push(qr);
-        if (compareQRs.length >= 2) {
-          clearTimeout(waitTimer);
-          finishComparison();
+        const match = qr === firstQR;
+        resultDiv.innerHTML = `
+          <div class="qr-label">🔑 基準QR：</div>
+          <div class="qr-value">${firstQR}</div>
+          <div class="qr-label" style="margin-top:12px;">🔍 照合QR：</div>
+          <div class="qr-value">${qr}</div>
+          <div style="margin-top:16px;" class="${match ? 'success' : 'fail'}">
+            ${match ? '✅ 一致しました！' : '❌ 不一致です…'}
+          </div>
+        `;
+
+        fetch(GAS_URL +
+          "?base=" + encodeURIComponent(firstQR) +
+          "&check=" + encodeURIComponent(qr) +
+          "&count=1" +
+          "&result=" + (match ? "OK" : "NG"))
+          .then(r => r.text())
+          .then(console.log);
+
+        (match ? successSound : failSound).play();
+
+        if (match) {
+          body.classList.add("success-bg");
+          setTimeout(() => body.classList.remove("success-bg"), 3000);
         }
+
+        setTimeout(() => {
+          firstQR = null;
+          resultDiv.innerHTML = "📸 もう一度スキャンを行ってください";
+        }, 3000);
       }
 
       setTimeout(() => {
         isBlocked = false;
       }, 1500);
-    }
-
-    function finishComparison() {
-      const allMatch = compareQRs.every(val => val === firstQR);
-      const result = allMatch ? "OK" : "NG";
-
-      let html = `
-        <div class="qr-label">🔑 基準QR：</div>
-        <div class="qr-value">${firstQR}</div>
-      `;
-      compareQRs.forEach((val, i) => {
-        const match = val === firstQR;
-        html += `
-          <div class="qr-label" style="margin-top:12px;">🔍 照合QR${i + 1}：</div>
-          <div class="qr-value">${val}</div>
-          <div class="${match ? 'success' : 'fail'}" style="margin-top:6px;">
-            ${match ? '✅ 一致' : '❌ 不一致'}
-          </div>
-        `;
-      });
-      resultDiv.innerHTML = html;
-
-      fetch(GAS_URL +
-        "?base=" + encodeURIComponent(firstQR) +
-        "&check=" + encodeURIComponent(compareQRs.join(",")) +
-        "&count=" + compareQRs.length +
-        "&result=" + result)
-        .then(r => r.text())
-        .then(console.log);
-
-      (allMatch ? successSound : failSound).play();
-
-      if (allMatch) {
-        body.classList.add("success-bg");
-        setTimeout(() => body.classList.remove("success-bg"), 3000);
-      }
-
-      setTimeout(() => {
-        firstQR = null;
-        compareQRs = [];
-        resultDiv.innerHTML = "📸 もう一度スキャンを行ってください";
-      }, 3000);
     }
   </script>
 </body>
